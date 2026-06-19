@@ -50,6 +50,7 @@
     const logLimit = Number.parseInt(config.URIDEMO_LOG_LIMIT, 10);
     const refreshMs = Number.parseInt(config.URIDEMO_REFRESH_MS, 10);
     const { createUriActions, dispatchUri } = await import(config.URIDEMO_JS_MODULE_PATH);
+    const seenLogKeys = new Set();
 
     function bindAction(selector, uri, payload, { href = false } = {}) {
       const element = $(selector);
@@ -75,12 +76,30 @@
       return dispatchUri(uri, { endpoint, ...options });
     }
 
+    function logKey(entry) {
+      return `${entry.ts}:${entry.uri}:${JSON.stringify(entry.payload)}`;
+    }
+
+    function mirrorLogsToConsole(entries) {
+      for (const entry of entries || []) {
+        const key = logKey(entry);
+        if (seenLogKeys.has(key)) continue;
+        seenLogKeys.add(key);
+        console.log(`[${entry.layer}] ${entry.uri}`, {
+          context: entry.context,
+          payload: entry.payload,
+          ts: new Date(entry.ts * 1000).toISOString(),
+        });
+      }
+    }
+
     async function refresh() {
       const state = await callUri(config.URI_DEVICE_STATE_CURRENT);
       $('#led').textContent = state.state.led ? 'on' : 'off';
       $('#last-command').textContent = state.state.last_command || '-';
       $('#uptime').textContent = `${state.state.uptime_ms}ms`;
       const logs = await callUri(config.URI_LOG_BACKEND_LOGS_RECENT, { payload: { limit: logLimit } });
+      mirrorLogsToConsole(logs.logs);
       $('#logs').textContent = JSON.stringify(logs.logs, null, 2);
     }
 
