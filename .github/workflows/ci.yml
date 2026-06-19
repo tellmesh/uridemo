@@ -16,10 +16,9 @@ jobs:
         with:
           node-version: "22"
       - run: python -m pip install -e python pytest
-      - run: pytest python/tests -q
-      - run: node --test js/*.test.js
+      - run: make test
       - run: |
           python examples/python-server.py &
           pid=$!
           trap "kill $pid" EXIT
-          python examples/smoke.py
+          make smoke

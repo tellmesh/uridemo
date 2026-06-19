@@ -1,10 +1,19 @@
 services:
   uridemo:
-    build: .
+    build:
+      context: .
+      args:
+        URIDEMO_PORT: ${URIDEMO_PORT}
+    env_file:
+      - .env
+    environment:
+      URIDEMO_BIND_HOST: ${URIDEMO_BIND_HOST}
+      URIDEMO_PORT: ${URIDEMO_PORT}
+      URIDEMO_PUBLIC_HOST: ${URIDEMO_PUBLIC_HOST}
     ports:
-      - "${URIDEMO_PORT:-18080}:8080"
+      - "${URIDEMO_PORT}:${URIDEMO_PORT}"
     healthcheck:
-      test: ["CMD", "python", "-c", "import json,urllib.request; print(json.load(urllib.request.urlopen('http://127.0.0.1:8080/health'))['ok'])"]
+      test: ["CMD-SHELL", "python -c \"import json,os,urllib.request; port=os.environ['URIDEMO_PORT']; path=os.environ['URIDEMO_HEALTH_PATH']; print(json.load(urllib.request.urlopen(f'http://127.0.0.1:{port}{path}'))['ok'])\""]
       interval: 2s
       timeout: 2s
       retries: 10

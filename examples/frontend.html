@@ -19,11 +19,11 @@
   <main>
     <section>
       <p class="label">Controls</p>
-      <a class="button" href="#device://device-01/led/command/set" data-payload='{"on":true}'>LED on</a>
-      <a class="button" href="#device://device-01/led/command/set" data-payload='{"on":false}'>LED off</a>
-      <button data-uri="device://device-01/ping/command/send" data-payload='{"source":"frontend"}'>Ping device</button>
-      <button data-uri="process://bridge/command/smoke" data-payload='{"source":"frontend"}'>Run process</button>
-      <button data-uri="log://frontend/action/command/write" data-payload='{"action":"manual-log","detail":{"from":"button"}}'>Write log</button>
+      <a id="led-on" class="button" href="#">LED on</a>
+      <a id="led-off" class="button" href="#">LED off</a>
+      <button id="ping-device" type="button">Ping device</button>
+      <button id="run-process" type="button">Run process</button>
+      <button id="write-log" type="button">Write log</button>
     </section>
     <section>
       <p class="label">State</p>
@@ -34,7 +34,7 @@
       </div>
     </section>
     <section>
-      <p class="label">Backend logs via log://backend/logs/query/recent</p>
+      <p id="logs-label" class="label">Backend logs</p>
       <pre id="logs">[]</pre>
     </section>
     <section>
@@ -42,25 +42,53 @@
       <pre id="last">{}</pre>
     </section>
   </main>
+  <script id="uridemo-config" type="application/json">__URIDEMO_CONFIG__</script>
   <script type="module">
-    import { createUriActions, dispatchUri } from '/js/index.js';
-
     const $ = (selector) => document.querySelector(selector);
+    const config = Object.freeze(JSON.parse($('#uridemo-config').textContent));
+    const endpoint = config.URIDEMO_API_PATH;
+    const logLimit = Number.parseInt(config.URIDEMO_LOG_LIMIT, 10);
+    const refreshMs = Number.parseInt(config.URIDEMO_REFRESH_MS, 10);
+    const { createUriActions, dispatchUri } = await import(config.URIDEMO_JS_MODULE_PATH);
+
+    function bindAction(selector, uri, payload, { href = false } = {}) {
+      const element = $(selector);
+      if (href) {
+        element.setAttribute('href', `#${uri}`);
+      } else {
+        element.setAttribute('data-uri', uri);
+      }
+      element.setAttribute('data-payload', JSON.stringify(payload));
+    }
+
+    bindAction('#led-on', config.URI_DEVICE_LED_SET, { on: true }, { href: true });
+    bindAction('#led-off', config.URI_DEVICE_LED_SET, { on: false }, { href: true });
+    bindAction('#ping-device', config.URI_DEVICE_PING_SEND, { source: 'frontend' });
+    bindAction('#run-process', config.URI_PROCESS_SMOKE, { source: 'frontend' });
+    bindAction('#write-log', config.URI_LOG_FRONTEND_ACTION_WRITE, {
+      action: 'manual-log',
+      detail: { from: 'button' },
+    });
+    $('#logs-label').textContent = `Backend logs via ${config.URI_LOG_BACKEND_LOGS_RECENT}`;
+
+    function callUri(uri, options = {}) {
+      return dispatchUri(uri, { endpoint, ...options });
+    }
 
     async function refresh() {
-      const state = await dispatchUri('device://device-01/state/query/current');
+      const state = await callUri(config.URI_DEVICE_STATE_CURRENT);
       $('#led').textContent = state.state.led ? 'on' : 'off';
       $('#last-command').textContent = state.state.last_command || '-';
       $('#uptime').textContent = `${state.state.uptime_ms}ms`;
-      const logs = await dispatchUri('log://backend/logs/query/recent', { payload: { limit: 50 } });
+      const logs = await callUri(config.URI_LOG_BACKEND_LOGS_RECENT, { payload: { limit: logLimit } });
       $('#logs').textContent = JSON.stringify(logs.logs, null, 2);
     }
 
-    createUriActions({ endpoint: '/api/dispatch' });
+    createUriActions({ endpoint });
 
     document.addEventListener('uri:success', async (event) => {
       $('#last').textContent = JSON.stringify(event.detail.response, null, 2);
-      await dispatchUri('log://frontend/action/command/write', {
+      await callUri(config.URI_LOG_FRONTEND_ACTION_WRITE, {
         payload: {
           action: 'uri.click',
           detail: { uri: event.detail.uri },
@@ -72,11 +100,11 @@
       $('#last').textContent = String(event.detail.error);
     });
 
-    await dispatchUri('log://frontend/session/command/write', {
+    await callUri(config.URI_LOG_FRONTEND_SESSION_WRITE, {
       payload: { event: 'frontend.started', detail: { href: location.href } },
     });
     await refresh();
-    setInterval(refresh, 1500);
+    setInterval(refresh, refreshMs);
   </script>
 </body>
 </html>

@@ -9,6 +9,8 @@ This repo is intentionally usable without npm or PyPI publishing:
 - `firmware/` contains tiny C and MicroPython parsers for constrained runtimes.
 - `examples/` contains an end-to-end demo with `device://`, `process://`, and `log://`.
 - `docker-compose.yml` runs the backend and static frontend.
+- `.env` is the single source of truth for ports, HTTP paths, device ids, and demo URI commands.
+- `Makefile` wraps the common backend, shell client, test, and Docker commands.
 
 ## URI Shape
 
@@ -33,50 +35,89 @@ logs through URI commands, and the frontend reads backend logs through
 ## Run Locally
 
 ```bash
-python3 examples/python-server.py
+make serve
 ```
 
-If `8080` is already in use:
+The default port comes from `.env`:
 
 ```bash
-URIDEMO_PORT=39785 python3 examples/python-server.py
-python3 examples/smoke.py http://127.0.0.1:39785
+URIDEMO_PORT=39785
 ```
+
+If the configured port is already in use, the Python server prints a friendly
+message and, when `URIDEMO_PORT_FALLBACK=auto`, binds an available port instead
+of raising a traceback.
 
 Open:
 
 ```text
-http://127.0.0.1:8080/
+http://127.0.0.1:39785/
 ```
 
 Smoke test:
 
 ```bash
-python3 examples/smoke.py
+make smoke
+```
+
+## Shell Client
+
+The shell client dispatches the same URI commands through the backend HTTP
+transport. It uses URI constants from `.env`, so the shell, frontend, backend,
+and firmware-style adapter share one command contract.
+
+```bash
+make shell-commands
+make shell-state
+make shell-led-on
+make shell-ping
+make shell-process
+make shell-log
+make shell-logs
+make shell-call
+```
+
+Direct usage:
+
+```bash
+python3 examples/shell-client.py led on
+python3 examples/shell-client.py log --layer firmware "firmware log from shell"
 ```
 
 ## Docker Compose
 
 ```bash
-docker compose up --build
+make docker-up
 ```
 
-The host port defaults to `18080`. Override it when needed:
+The host and container port are read from `.env`:
 
 ```bash
-URIDEMO_PORT=35921 docker compose up --build
+URIDEMO_PORT=39785
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:18080/
+http://127.0.0.1:39785/
 ```
 
 Smoke against compose:
 
 ```bash
-python3 examples/smoke.py http://127.0.0.1:18080
+make docker-smoke
+```
+
+Stop compose:
+
+```bash
+make docker-down
+```
+
+Run all local checks:
+
+```bash
+make test
 ```
 
 ## Use From GitHub
