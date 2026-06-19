@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>URI Dispatch Demo</title>
+  <style>
+    body { background: #f4f6f8; color: #17212b; font-family: system-ui, sans-serif; margin: 0; }
+    main { display: grid; gap: 1rem; margin: 0 auto; max-width: 960px; padding: 1.5rem; }
+    section { background: #fff; border: 1px solid #d8e0e8; border-radius: 8px; padding: 1rem; }
+    button, .button { background: #fff; border: 1px solid #9eacba; border-radius: 6px; color: inherit; cursor: pointer; display: inline-flex; font: inherit; margin: 0.2rem; padding: 0.7rem 0.9rem; text-decoration: none; }
+    button[aria-busy="true"], .button[aria-busy="true"] { opacity: 0.6; }
+    pre { background: #101820; border-radius: 6px; color: #dce8ef; margin: 0; max-height: 18rem; overflow: auto; padding: 1rem; }
+    .facts { display: grid; gap: 0.5rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .label { color: #657384; font-size: 0.8rem; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <p class="label">Controls</p>
+      <a class="button" href="#device://device-01/led/command/set" data-payload='{"on":true}'>LED on</a>
+      <a class="button" href="#device://device-01/led/command/set" data-payload='{"on":false}'>LED off</a>
+      <button data-uri="device://device-01/ping/command/send" data-payload='{"source":"frontend"}'>Ping device</button>
+      <button data-uri="process://bridge/command/smoke" data-payload='{"source":"frontend"}'>Run process</button>
+      <button data-uri="log://frontend/action/command/write" data-payload='{"action":"manual-log","detail":{"from":"button"}}'>Write log</button>
+    </section>
+    <section>
+      <p class="label">State</p>
+      <div class="facts">
+        <div>LED: <strong id="led">-</strong></div>
+        <div>Last: <strong id="last-command">-</strong></div>
+        <div>Uptime: <strong id="uptime">-</strong></div>
+      </div>
+    </section>
+    <section>
+      <p class="label">Backend logs via log://backend/logs/query/recent</p>
+      <pre id="logs">[]</pre>
+    </section>
+    <section>
+      <p class="label">Last dispatch</p>
+      <pre id="last">{}</pre>
+    </section>
+  </main>
+  <script type="module">
+    import { createUriActions, dispatchUri } from '/js/index.js';
+
+    const $ = (selector) => document.querySelector(selector);
+
+    async function refresh() {
+      const state = await dispatchUri('device://device-01/state/query/current');
+      $('#led').textContent = state.state.led ? 'on' : 'off';
+      $('#last-command').textContent = state.state.last_command || '-';
+      $('#uptime').textContent = `${state.state.uptime_ms}ms`;
+      const logs = await dispatchUri('log://backend/logs/query/recent', { payload: { limit: 50 } });
+      $('#logs').textContent = JSON.stringify(logs.logs, null, 2);
+    }
+
+    createUriActions({ endpoint: '/api/dispatch' });
+
+    document.addEventListener('uri:success', async (event) => {
+      $('#last').textContent = JSON.stringify(event.detail.response, null, 2);
+      await dispatchUri('log://frontend/action/command/write', {
+        payload: {
+          action: 'uri.click',
+          detail: { uri: event.detail.uri },
+        },
+      });
+      await refresh();
+    });
+    document.addEventListener('uri:error', (event) => {
+      $('#last').textContent = String(event.detail.error);
+    });
+
+    await dispatchUri('log://frontend/session/command/write', {
+      payload: { event: 'frontend.started', detail: { href: location.href } },
+    });
+    await refresh();
+    setInterval(refresh, 1500);
+  </script>
+</body>
+</html>

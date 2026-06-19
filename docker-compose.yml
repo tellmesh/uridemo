@@ -1,0 +1,10 @@
+services:
+  uridemo:
+    build: .
+    ports:
+      - "${URIDEMO_PORT:-18080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; print(json.load(urllib.request.urlopen('http://127.0.0.1:8080/health'))['ok'])"]
+      interval: 2s
+      timeout: 2s
+      retries: 10

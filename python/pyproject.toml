@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uri-dispatch"
+version = "0.1.0"
+description = "Small URI dispatcher parser for GitHub-only demos"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["."]
